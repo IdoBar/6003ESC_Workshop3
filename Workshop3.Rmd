@@ -1,0 +1,269 @@
+---
+title: "Tutorial for Lecture 3 - Analysis of Covid 19 Data"
+subtitle: "Scientific Data Analysis 6003ESC" 
+author: "Dr. Ido Bar"
+date: "23/03/2020"
+output: 
+    html_document:
+#      css: "style/style.css"
+      toc: true
+      toc_float: true
+      toc_depth: 3
+      highlight: pygments
+      number_sections: false
+      code_folding: hide
+---
+
+<style>
+.fold-btn { float: right; }
+</style>
+
+<script type="text/javascript">
+$(document).ready(function() {
+  $(".fold").prepend("<button class=\"fold-btn\">Reveal</button>");
+  $(".fold").children("code").toggle();
+  $(".fold-btn").on("click", function() {
+    if($(this).text() === "Hide") {
+      $(this).text("Reveal");
+    } else {
+      $(this).text("Hide");
+    }
+    $(this).next("code").toggle("linear");
+  })
+});
+</script>
+
+
+```{r setup, include=FALSE}
+# pacman::p_load(captioner, paletteer, highcharter, countrycode, plotly, readxl, tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
+# setup figure and table captions
+# figs <- captioner(prefix="Figure")
+# tbls <- captioner(prefix="Table")
+# figs(name="ecocloud_dash", "EcoCloud dashboard screenshot.")
+# figs(name="jupyter_dash", "Jupyter dashboard screenshot.")
+# figs(name="rstudio_project", "Create a new project in RStudio screenshots.")
+# figs(name="tidyverse_workflow", "An example of a data analysis workflow using packages from the Tidyverse (credit to [The Centre for Statistics in Ecology, the Environment and Conservation, University of Cape Town](http://www.seec.uct.ac.za/r-tidyverse)).")
+# figs(name="asia_lifexpct1","Life expectancy by years in Asian countries (first try).")
+# figs(name="asia_lifexpct2","Life expectancy by years in Asian countries (added line graph).")
+# figs(name="asia_lifexpct3","Life expectancy by years in Asian countries (added line graph coloured by country).")
+# figs(name="asia_lifexpct4","Life expectancy by years in Asian countries (beautify the plot with themes, colour palettes and labels).") 
+# figs(name="gdp_life","Relationship between GDP per capita and life expectancy by continent")
+# figs(name="gdp_life_log","Relationship between GDP per capita and life expectancy by continent (log-scaled X-axis")
+# figs(name="ggplot2_layers","A visualisation of the layer concept in 'ggplot2' package (starting from bottom up, credit to [Coding Club](https://ourcodingclub.github.io/tutorials/dataviz-beautification-synthesis/#distributions)).")
+# figs(name="GOT_palette", "An example of a 'ggplot2' theme inspired by Game of Thrones ([tvthemes package](https://github.com/Ryo-N7/tvthemes))")
+```
+
+## Introduction
+
+This tutorial will focus on analysing updated data of the worldwide Novel Corona virus (Covid-19) pandemic.  
+There are several data sources available online. We will use the data collected from a range of sources by the Johns Hopkins University Center for Systems Science and Engineering (JHU CSSE) and hosted on their [GitHub repository](https://github.com/CSSEGISandData/COVID-19).  _Note that this data is lagging 1 day behind!!_
+
+
+Specific instructions on using R, RStudio and the EcoCloud are available in [Workshop1 Tutorial on BB](https://bblearn.griffith.edu.au/bbcswebdav/pid-5199555-dt-content-rid-88790949_1/xid-88790949_1).
+
+
+## Analyse Data in R
+
+Start RStudio and create a new project named `Workshop3` in a new folder (if you need a reminder ho to do it, check out [Workshop1 Tutorial on BB](https://bblearn.griffith.edu.au/bbcswebdav/pid-5199555-dt-content-rid-88790949_1/xid-88790949_1)).  
+Once RStudio restarts inside the project's folder, create a new R script named `Workshop3.R` and 2 new folders, one named `data` for our input data and another named `output` for our plots.  
+
+### Install Extra Packages
+
+For this analysis we will again use some packages from the [Tidyverse](https://www.tidyverse.org/), but this time we load the specific packages (which are supposed to be pre-installed on EcoCloud) to try and avoid having to download the entire `tidyverse`. Please install the packages if you're getting error when running the `library()` command.  In addition we will use the `plotly` package for interactive plots, `paletteer` for custom color palettes, `readxl` to read MS-Excel file and `highcharter` and `geojsonio` packages to plot the data on a world map.  
+To install these packages, we use the `install.packages('package')` command, please note that the package name need to be quoted and that we only need to perform it once (if we followed step 3b above, or every time we restart the server if we didn't), or when we want or need to update the package.  Once the package was installed, we can load its functions using the `library(package)` command. _Note that in this case we use the package name without quotes!_.  
+
+```{r install_packages, eval=TRUE, warning=FALSE, message=FALSE}
+# install required packages - needed only once! (comment with a # after first use)
+# install.packages(c("dplyr", "ggplot2", "paletteer", "stringr", "readr","readxl", "highcharter", "countrycode", "plotly"))
+# load required packages
+library(dplyr)
+library(readr)
+library(stringr)
+library(forcats)
+library(readxl)
+library(ggplot2)
+library(paletteer)
+library(plotly)
+library(highcharter)
+library(countrycode)
+```
+
+More information on R packages can be found in this [tutorial](http://www.sthda.com/english/wiki/installing-and-using-r-packages).
+
+### Read Data
+
+Now that we've got RStudio up and running and our packages installed and loaded, we can read data into R from our local computer or from web locations using dedicated functions specific to the file type (`.csv`, `.txt`, `.xlsx`, etc.). 
+Please download the data files from Blackboard and put them in the `data` folder.  
+
+We will use the `read_csv()` command/function from the `readr` package (part of the `tidyverse`) to load the data from a file on our computer into a variable of type **data frame** (table). If we don't want to use external packages, we can use the `read.csv()` function from base R (which will slightly change the structure of the resulting data frame).  
+> Note that the path to the files can be either relative or absolute to our current working directory and that we use `/` and not `\`, to make life easier, make use of RStudio's autocompletion feature._
+
+```{r read_data, message=FALSE, warning=FALSE}
+# read data from the 'data' folder
+covid_data <- read_csv("data/csse_country_covid_data_21_03_2020.csv")
+covid_daily_data <- read_excel("data/COVID-19-geographic-disbtribution-worldwide-2020-03-22.xlsx") %>% 
+  rename(Country=`Countries and territories`) %>%
+  mutate(Country=str_to_title(Country)) %>%
+  group_by(Country) %>% arrange(Country, DateRep) %>%
+  mutate(Total_cases=cumsum(Cases), Total_Deaths=cumsum(Deaths),
+         iso3c=countrycode(GeoId, origin = 'iso2c', destination = 'iso3c')) %>% 
+  ungroup()
+
+# 
+#          GeoId = case_when(GeoId=="UK"~"GB",
+#                            GeoId=="PS"~"GZ",
+#                            GeoId=="EL"~"GR",
+#                            GeoId=="XK"~"KV",
+#                            GeoId=="JPG11668"~"UM",
+#                            TRUE~GeoId)) %>% ungroup()
+```
+
+### Data Exploration
+
+Let's use built-in functions for a brief data exploration, such as `head()` to show the first 10 rows of the data and `str()` for the type of data in each column:
+
+```{r explore_data}
+#explore the data frame
+head(covid_data) # show first 10 rows of the data and typr of variables
+str(covid_data) # show data structure
+
+```
+
+### Descriptive Statistics
+We can also produce some descriptive statistics to better understand the data and the nature of each variable.  The `summary()` function (as can be guessed by its name) provides a quick summary of basic descriptive statistics, such as the _mean_, _min_, _max_ and quantiles for continous numerical values.  
+
+```{r summary}
+# summary of variables in my data
+summary(covid_data)
+```
+
+We can see that most of our data contains '0' (check the median of `Confirmed` column). 
+Just to confirm that, let;s plot a histogram of all the confirmed cases
+
+```{r histo_numeric}
+ggplot(covid_data, aes(x=Confirmed)) +
+  geom_histogram(fill="lightskyblue") +
+  theme_bw(16)
+```
+
+What are the metadata columns that describe our observations?
+```{fold}
+Country 
+Date
+```
+
+The data is evolving over a time-series, to there's no point treating it as a random sample.  
+
+
+## Time-series plot
+
+Let's look at confirmed cases data for the 15 most affected countries.
+
+```{r timeseries_cases}
+latest_data <- covid_data %>% group_by(`Country/Region`) %>% arrange(desc(Date)) %>% slice(1) %>% ungroup() 
+most_affected_countries <- latest_data %>% arrange(desc(Confirmed)) %>% slice(1:10) %>% .$`Country/Region` %>% 
+  c(., "Australia")
+
+ggplot(covid_data %>% filter(`Country/Region` %in% most_affected_countries), 
+       aes(x=Date, y=Confirmed, colour=fct_reorder(factor(`Country/Region`), Confirmed, .desc = TRUE))) +
+  geom_line(size=1) + 
+    scale_color_paletteer_d("ggsci::springfield_simpsons") +
+  labs(color="Country") +
+  theme_bw(16)
+```
+
+It's a bit hard to figure out how the pandemic evloves currently because the large numbers in China mask the rest. How can we make it more visible?
+
+
+```{r timeseries_cases_log}
+# subset just the data from the 10 most affected countries and order them from the most affected to the least one
+plot_data <- covid_data %>% filter(`Country/Region` %in% most_affected_countries) %>% 
+  mutate(`Country/Region`=fct_reorder(factor(`Country/Region`), Confirmed, .desc = TRUE))
+# create the plot
+plot <- ggplot(plot_data, aes(x=Date, y=Confirmed, colour=`Country/Region`)) +
+  geom_line(size=0.6) + scale_y_log10(labels=scales::comma) +
+    scale_color_paletteer_d("ggsci::springfield_simpsons") +
+  labs(color="Country") +
+  theme_bw(16)
+# show an interactive plot
+ggplotly(plot)
+```
+
+Why did we get a warning message? What can we infer from the graph (exponential increase)?  
+
+```{fold}
+What happens when we take the log of 0??
+We can see a very similar trend for most countries and while the curve is flattening in China, South Korea and slightly in Iran, it is still alarmingly steep in Italy and most European countries and the US.
+```
+
+We can also look at the number of daily new cases as a measure to how rapidly the virus spreads in the population.
+
+```{r timeseries_newcases}
+# find the 10 most affected countries and order them from the most affected to the least one
+most_affected_eu_data <- covid_daily_data %>% group_by(Country) %>% arrange(desc(DateRep)) %>% slice(1) %>% ungroup()  %>% arrange(desc(Total_cases)) %>% slice(1:10) %>% .$Country %>% c(., "Australia")
+
+# subset the daily data and add Australia as well
+plot_data <- covid_daily_data %>% filter(Country %in% most_affected_eu_data) %>% 
+  mutate(Country=fct_reorder(factor(Country), Total_cases, .desc = TRUE)) %>% 
+  filter(DateRep>as.Date("2020-02-01"))
+# create the plot
+plot <- ggplot(plot_data, aes(x=DateRep, y=Cases, colour=Country)) +
+  geom_line(size=0.6) + #scale_y_log10(labels=scales::comma) +
+    scale_color_paletteer_d("ggsci::springfield_simpsons") +
+  labs(x="Date", y="Confirmed Cases") +
+  theme_bw(16)
+# show an interactive plot
+ggplotly(plot)
+```
+
+What do you suggest influences the numbers?
+
+## Choroplet Map
+Let's visualise how what's the current status around the globe:
+
+```{r world_choroplet}
+# download map data
+world_map <- download_map_data("custom/world-palestine-highres")
+mapdata <- get_data_from_map(world_map)
+
+# select only most current data
+choroplet_data <- covid_daily_data %>%  group_by(Country) %>% arrange(desc(DateRep)) %>%
+  slice(1)
+
+# # define colors
+bins <- c(0, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, Inf)
+cols <- as.character(paletteer_c("viridis::inferno", length(bins)+1, direction = -1))
+stops <- data.frame(q=0:length(bins)/length(bins), c=cols) %>% list_parse2(.)
+
+# plot map
+  highchart(type = "map") %>%
+    hc_add_series_map(map = world_map, df = choroplet_data,
+                      value = "Total_cases", joinBy = c("iso-a3", "iso3c")) %>%
+    hc_colorAxis(stops = stops) %>%
+    hc_tooltip(useHTML=TRUE,headerFormat='',
+               pointFormat = paste0('{point.Country} confirmed cases : {point.Total_cases}<br/>Deaths: {point.Total_Deaths}')) %>%
+    hc_mapNavigation(enabled = TRUE) %>%
+  hc_title(text = "Number of confirmed Covid 19 cases by Country",
+           margin = 40, align = "left",
+           style = list(color = "#2b908f", useHTML = TRUE)) %>%
+  hc_subtitle(text = glue::glue("Data last updated on {format(max(latest_data$Date), '%d/%m/%Y')}"),
+              align = "left",
+              style = list(color = "#2b908f", fontWeight = "bold")) %>%
+  hc_exporting(enabled = TRUE)
+
+
+```
+
+What else can we plot or investigate?
+
+
+## Additional Resources
+
+* Johns Hopkins University Center for Systems Science and Engineering (JHU CSSE) [data repository](https://github.com/CSSEGISandData/COVID-19) and [website](https://systems.jhu.edu/research/public-health/ncov/)
+* EU daily Covid 19 data for download in Excel format [link](https://www.ecdc.europa.eu/en/publications-data/download-todays-data-geographic-distribution-covid-19-cases-worldwide) 
+* My very own [Covid 19 dashboard](https://idobar.github.io/covid19-dash/) (created in R)
+
+## Contact 
+
+Please contact me at i.bar\@griffith.edu.au for any questions or comments.
