@@ -59,10 +59,6 @@ knitr::opts_chunk$set(echo = TRUE)
 This tutorial will focus on analysing updated data of the worldwide Novel Corona virus (Covid-19) pandemic.  
 There are several data sources available online. We will use the data collected from a range of sources by the Johns Hopkins University Center for Systems Science and Engineering (JHU CSSE) and hosted on their [GitHub repository](https://github.com/CSSEGISandData/COVID-19).  _Note that this data is lagging 1 day behind!!_
 
-
-Specific instructions on using R, RStudio and the EcoCloud are available in [Workshop1 Tutorial on BB](https://bblearn.griffith.edu.au/bbcswebdav/pid-5199555-dt-content-rid-88790949_1/xid-88790949_1).
-
-
 ## Analyse Data in R
 
 Start RStudio and create a new project named `Workshop3` in a new folder (if you need a reminder ho to do it, check out [Workshop1 Tutorial on BB](https://bblearn.griffith.edu.au/bbcswebdav/pid-5199555-dt-content-rid-88790949_1/xid-88790949_1)).  
@@ -70,7 +66,7 @@ Once RStudio restarts inside the project's folder, create a new R script named `
 
 ### Install Extra Packages
 
-For this analysis we will again use some packages from the [Tidyverse](https://www.tidyverse.org/), but this time we load the specific packages (which are supposed to be pre-installed on EcoCloud) to try and avoid having to download the entire `tidyverse`. Please install the packages if you're getting error when running the `library()` command.  In addition we will use the `plotly` package for interactive plots, `paletteer` for custom color palettes, `readxl` to read MS-Excel file and `highcharter` and `geojsonio` packages to plot the data on a world map.  
+For this analysis we will again use some packages from the [Tidyverse](https://www.tidyverse.org/), but this time we load the specific packages (which are supposed to be pre-installed on EcoCloud) to try and avoid having to download the entire `tidyverse`. Please install the packages if you're getting error when running the `library()` command.  In addition we will use the `plotly` package for interactive plots, `paletteer` for custom color palettes, `readxl` to read MS-Excel file and `highcharter` and `countrycode` packages to plot the data on a world map.  
 To install these packages, we use the `install.packages('package')` command, please note that the package name need to be quoted and that we only need to perform it once (if we followed step 3b above, or every time we restart the server if we didn't), or when we want or need to update the package.  Once the package was installed, we can load its functions using the `library(package)` command. _Note that in this case we use the package name without quotes!_.  
 
 ```{r install_packages, eval=TRUE, warning=FALSE, message=FALSE}
@@ -89,7 +85,7 @@ library(highcharter)
 library(countrycode)
 ```
 
-More information on R packages can be found in this [tutorial](http://www.sthda.com/english/wiki/installing-and-using-r-packages).
+More information on installing and using R packages can be found in this [tutorial](http://www.sthda.com/english/wiki/installing-and-using-r-packages).
 
 ### Read Data
 
@@ -97,26 +93,12 @@ Now that we've got RStudio up and running and our packages installed and loaded,
 Please download the data files from Blackboard and put them in the `data` folder.  
 
 We will use the `read_csv()` command/function from the `readr` package (part of the `tidyverse`) to load the data from a file on our computer into a variable of type **data frame** (table). If we don't want to use external packages, we can use the `read.csv()` function from base R (which will slightly change the structure of the resulting data frame).  
-> Note that the path to the files can be either relative or absolute to our current working directory and that we use `/` and not `\`, to make life easier, make use of RStudio's autocompletion feature._
+> Note that the path to the files can be either relative or absolute to our current working directory and that we use aforward slash `/` (Unix/Mac style) and not a backslash `\` (Windows style), to make life easier, make use of RStudio's autocompletion feature._
 
 ```{r read_data, message=FALSE, warning=FALSE}
 # read data from the 'data' folder
 covid_data <- read_csv("data/csse_country_covid_data_21_03_2020.csv")
-covid_daily_data <- read_excel("data/COVID-19-geographic-disbtribution-worldwide-2020-03-22.xlsx") %>% 
-  rename(Country=`Countries and territories`) %>%
-  mutate(Country=str_to_title(Country)) %>%
-  group_by(Country) %>% arrange(Country, DateRep) %>%
-  mutate(Total_cases=cumsum(Cases), Total_Deaths=cumsum(Deaths),
-         iso3c=countrycode(GeoId, origin = 'iso2c', destination = 'iso3c')) %>% 
-  ungroup()
 
-# 
-#          GeoId = case_when(GeoId=="UK"~"GB",
-#                            GeoId=="PS"~"GZ",
-#                            GeoId=="EL"~"GR",
-#                            GeoId=="XK"~"KV",
-#                            GeoId=="JPG11668"~"UM",
-#                            TRUE~GeoId)) %>% ungroup()
 ```
 
 ### Data Exploration
@@ -147,26 +129,42 @@ ggplot(covid_data, aes(x=Confirmed)) +
   theme_bw(16)
 ```
 
-What are the metadata columns that describe our observations?
+What are the **metadata** columns that describe our observations?
 ```{fold}
 Country 
 Date
 ```
 
-The data is evolving over a time-series, to there's no point treating it as a random sample.  
+The data is evolving over a time-series, to there's no point treating it as a random population sample.  
 
 
 ## Time-series plot
 
-Let's look at confirmed cases data for the 15 most affected countries.
+Let's look at confirmed cases data for the 10 most affected countries (to date).  To find out these countries so we need to wrangle our data a little bit using the following steps:  
 
+  a. First we group it by Country with `group_by()`
+  b. Then we sort it _within each Country_ by Date (from latest to earliest) with `arrange(desc(Date))`
+  c. We select just the most recent data with `slice(1)` and remove grouping with `ungroup()`
+  d. Next we arrange it by descending order of confirmed cases and select the top 10
+  e. We extract just the Country information with subsetting using the `$` sign 
+  f. We add Australia to the resulting vector of countries with `c()`
+  g. Finally, we subset our original data to contain just the countries from our vector with `filter()`
+
+Optional step:
+
+  h. We can reorder the countries so they will be ordered in the legend by the number of cases with `fct_reorder()`
+
+Then we can plot the data as number of cases in the y-axis and date in the x-axis.
 ```{r timeseries_cases}
+# find the 10 most affected countries (to date)
 latest_data <- covid_data %>% group_by(`Country/Region`) %>% arrange(desc(Date)) %>% slice(1) %>% ungroup() 
 most_affected_countries <- latest_data %>% arrange(desc(Confirmed)) %>% slice(1:10) %>% .$`Country/Region` %>% 
   c(., "Australia")
-
-ggplot(covid_data %>% filter(`Country/Region` %in% most_affected_countries), 
-       aes(x=Date, y=Confirmed, colour=fct_reorder(factor(`Country/Region`), Confirmed, .desc = TRUE))) +
+# subset just the data from the 10 most affected countries and order them from the most affected to the least one
+plot_data <- covid_data %>% filter(`Country/Region` %in% most_affected_countries) %>% 
+  mutate(Country=fct_reorder(factor(`Country/Region`), Confirmed, .desc = TRUE))
+# create a line plot the data
+ggplot(plot_data, aes(x=Date, y=Confirmed, colour=Country)) +
   geom_line(size=1) + 
     scale_color_paletteer_d("ggsci::springfield_simpsons") +
   labs(color="Country") +
@@ -175,13 +173,10 @@ ggplot(covid_data %>% filter(`Country/Region` %in% most_affected_countries),
 
 It's a bit hard to figure out how the pandemic evloves currently because the large numbers in China mask the rest. How can we make it more visible?
 
-
 ```{r timeseries_cases_log}
-# subset just the data from the 10 most affected countries and order them from the most affected to the least one
-plot_data <- covid_data %>% filter(`Country/Region` %in% most_affected_countries) %>% 
-  mutate(`Country/Region`=fct_reorder(factor(`Country/Region`), Confirmed, .desc = TRUE))
+
 # create the plot
-plot <- ggplot(plot_data, aes(x=Date, y=Confirmed, colour=`Country/Region`)) +
+plot <- ggplot(plot_data, aes(x=Date, y=Confirmed, colour=Country)) +
   geom_line(size=0.6) + scale_y_log10(labels=scales::comma) +
     scale_color_paletteer_d("ggsci::springfield_simpsons") +
   labs(color="Country") +
@@ -198,6 +193,24 @@ We can see a very similar trend for most countries and while the curve is flatte
 ```
 
 We can also look at the number of daily new cases as a measure to how rapidly the virus spreads in the population.
+We will read another dataset collected by the EU of daily new cases (could we calculate it from the data we currently have?)  
+We need to wrangle this one up as well to make sure that the countries names are consistent (try to open the file in excel file and find the issue). We also calculate the number of total cases using `mutate(Total_cases=cumsum(Cases), Total_Deaths=cumsum(Deaths)` and create a new column that will hold the 3 character country code (`iso3c`) to help us map the data later on. 
+
+```{r eu_data}
+covid_daily_data <- read_excel("data/COVID-19-geographic-disbtribution-worldwide-2020-03-22.xlsx") %>% 
+  rename(Country=`Countries and territories`) %>%
+  mutate(Country=str_to_title(Country)) %>%
+  group_by(Country) %>% arrange(Country, DateRep) %>%
+  mutate(Total_cases=cumsum(Cases), Total_Deaths=cumsum(Deaths), 
+         GeoId = case_when(GeoId=="UK"~"GB",
+                           GeoId=="EL"~"GR",
+                           GeoId=="JPG11668"~"UM",
+                           TRUE~GeoId),
+         iso3c=countrycode(GeoId, origin = 'iso2c', destination = 'iso3c')) %>% 
+  ungroup()
+```
+
+Similar to what we did earlier, we'll group the data by Country and sort it by Date to select the most current data that we'll use to select the most affected countries.
 
 ```{r timeseries_newcases}
 # find the 10 most affected countries and order them from the most affected to the least one
@@ -217,10 +230,18 @@ plot <- ggplot(plot_data, aes(x=DateRep, y=Cases, colour=Country)) +
 ggplotly(plot)
 ```
 
-What do you suggest influences the numbers?
+#### Questions
+1. Why didn't we use the vector of countries that we identified earlier from the original dataset?
+2. What do you suggest influence the number of new cases?
+
+```{fold}
+1. Because the country names not necceraly match (check how USA appears in both datasets)
+2. Any ideas?
+```
 
 ## Choroplet Map
-Let's visualise how what's the current status around the globe:
+Let's visualise now what's the current status around the globe. We will use just the most current data (from the latest Date).  We will create a color scale to represent the number of cases in each country.
+
 
 ```{r world_choroplet}
 # download map data
@@ -229,25 +250,28 @@ mapdata <- get_data_from_map(world_map)
 
 # select only most current data
 choroplet_data <- covid_daily_data %>%  group_by(Country) %>% arrange(desc(DateRep)) %>%
-  slice(1)
+  slice(1) %>% mutate(log_cases=log(Total_cases))
 
 # # define colors
-bins <- c(0, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, Inf)
-cols <- as.character(paletteer_c("viridis::inferno", length(bins)+1, direction = -1))
-stops <- data.frame(q=0:length(bins)/length(bins), c=cols) %>% list_parse2(.)
+bins <- c(1, 100, 200, 500, 1000, 2000, 5000, 10000, 20000, 50000, 100000)
+cols <- as.character(paletteer_c("viridis::inferno", length(bins), direction = -1))
+stops <- data.frame(q=1:length(bins)/length(bins), c=cols) %>% list_parse2(.)
+# stops <- data.frame(q=bins/bins[length(bins)], c=cols) %>% list_parse2(.)
+# stops <- data.frame(name=bins, from=log(bins)/log(bins[length(bins)]), color=cols, stringsAsFactors = FALSE) %>% list_parse2(.)
+# stops <- data.frame(q=rev(1-log(bins)/log(bins[length(bins)])), c=cols) %>% list_parse2(.)
 
 # plot map
   highchart(type = "map") %>%
     hc_add_series_map(map = world_map, df = choroplet_data,
-                      value = "Total_cases", joinBy = c("iso-a3", "iso3c")) %>%
-    hc_colorAxis(stops = stops) %>%
+                      value = "log_cases", joinBy = c("iso-a3", "iso3c")) %>%
+    hc_colorAxis(stops  = stops) %>%
     hc_tooltip(useHTML=TRUE,headerFormat='',
                pointFormat = paste0('{point.Country} confirmed cases : {point.Total_cases}<br/>Deaths: {point.Total_Deaths}')) %>%
     hc_mapNavigation(enabled = TRUE) %>%
   hc_title(text = "Number of confirmed Covid 19 cases by Country",
            margin = 40, align = "left",
            style = list(color = "#2b908f", useHTML = TRUE)) %>%
-  hc_subtitle(text = glue::glue("Data last updated on {format(max(latest_data$Date), '%d/%m/%Y')}"),
+  hc_subtitle(text = glue::glue("Data last updated on {format(max(choroplet_data$DateRep), '%d/%m/%Y')}"),
               align = "left",
               style = list(color = "#2b908f", fontWeight = "bold")) %>%
   hc_exporting(enabled = TRUE)
