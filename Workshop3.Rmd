@@ -18,7 +18,7 @@ output:
 .fold-btn { float: right; }
 </style>
 
-<script type="text/javascript">
+```{js reveal-js, echo=FALSE}
 $(document).ready(function() {
   $(".fold").prepend("<button class=\"fold-btn\">Reveal</button>");
   $(".fold").children("code").toggle();
@@ -31,14 +31,23 @@ $(document).ready(function() {
     $(this).next("code").toggle("linear");
   })
 });
-</script>
+```
 
+
+```{js logo-js, echo=FALSE}
+$(document).ready(function() {
+  $('#header').parent().prepend('<div id=\"Griffith logo\"><img src=\"https://www.griffith.edu.au/__data/assets/image/0018/653121/Griffith_Full_Logo_scaled.png\" style=\"position:absolute; top:100px; right:0; padding:20px; height:120px\"></div>');
+  $('#header').css('margin-right', '120px')
+});
+```
 
 ```{r setup, include=FALSE}
 # pacman::p_load(captioner, paletteer, highcharter, countrycode, plotly, readxl, tidyverse, here, scales, lubridate)
-required_packages <- c("dplyr", "ggplot2", "paletteer", "stringr", "readr","readxl", "glue",
+required_packages <- c("dplyr", "ggplot2", "paletteer", "stringr",
+                       "readr","readxl", "glue",
                        "forcats", "tidyr",
-                       "highcharter", "scales",  "plotly", "lubridate", "here","ISOweek", "countrycode")
+                       "highcharter", "scales",  "plotly", 
+                       "lubridate", "here","ISOweek", "countrycode")
 pacman::p_load(char=required_packages)
 knitr::opts_chunk$set(echo = TRUE, warning=FALSE, message=FALSE)
 # setup figure and table captions
@@ -77,8 +86,11 @@ To install these packages, we will introduce a package called [pacman](https://t
 install.packages('pacman')
 # load required packages
 library(pacman)
-required_packages <- c("dplyr", "tidyr", "ggplot2", "paletteer", "stringr", "readr","readxl", "glue",
-                       "highcharter", "forcats", "scales",  "plotly", "lubridate", "here", "ISOweek", "countrycode")
+required_packages <- c("dplyr", "tidyr", "ggplot2", "paletteer",
+                       "stringr", "readr","readxl", "glue",
+                       "highcharter", "forcats", "scales",  
+                       "plotly", "lubridate", "here", "ISOweek",
+                       "countrycode")
 p_load(char=required_packages)
 
 ```
@@ -282,16 +294,16 @@ ggplotly(plot)
 ```
 
 We can look at the average cases by continent and how the pandemic spread across the globe and the different responses of the continents.  
-Check at the following [BBC site](https://www.bbc.com/news/world-52103747) and check roughly when lockdowns and travel restrictions were applied.
+Check at the following [BBC site](https://www.bbc.com/news/world-52103747) and check roughly when lockdowns and travel restrictions were applied and plot it.
 
 ```{r timeseries_continents, warning=TRUE}
 cont_weekly_data <- covid_weekly_data %>% group_by(continent, Date) %>% 
-  summarise_at(c("Total_cases", "Total_Deaths"), ~mean(., na.rm=TRUE)) %>% filter(Total_cases>0) %>% 
+  summarise_at(c("Total_cases", "Total_Deaths"), ~mean(., na.rm=TRUE)) %>% filter(Total_cases>1) %>% 
   ungroup()
 # create the plot
 cont_plot <- ggplot(cont_weekly_data, aes(x=Date, y=Total_cases, colour=continent)) +
   geom_line(size=0.6) + 
-  geom_vline(xintercept = as.Date("2020-04-20"), col="grey20", linetype="dotdashed") + 
+  geom_segment(aes(x = dmy("15/03/2020"), xend = dmy("15/03/2020"), y = 1, yend = 100000), colour="red", linetype ="dashed", size=0.25) + 
   scale_y_log10(labels=comma) +
     scale_color_paletteer_d("rcartocolor::Bold") +
   scale_x_date(NULL,
@@ -364,9 +376,10 @@ What else can we plot or investigate?
 ## Additional Resources
 
 * Johns Hopkins University Center for Systems Science and Engineering (JHU CSSE) [data repository](https://github.com/CSSEGISandData/COVID-19){target="_blank"} and [website](https://systems.jhu.edu/research/public-health/ncov/){target="_blank"}
-* EU 14-days Covid 19 data for download in CSV/Excel format [link](https://www.ecdc.europa.eu/en/publications-data/data-national-14-day-notification-rate-covid-19){target="_blank"} 
+* EU 14-days COVID-19 data for download in CSV/Excel format [link](https://www.ecdc.europa.eu/en/publications-data/data-national-14-day-notification-rate-covid-19){target="_blank"} 
+* COVID-19 vaccination data in [Our World in Data site](https://ourworldindata.org/covid-vaccinations){target="_blank"}
 * My very own [COVID-19 dashboard](https://idobar.github.io/covid19-dash/){target="_blank"} (created in R)
 
 ## Contact 
 
-Please contact me at i.bar\@griffith.edu.au for any questions or comments.
+Please contact me at [i.bar\@griffith.edu.au](mailto:i.bar@griffith.edu.au?subject=[6003ESC]%20Workshop3%20question) for any questions or comments.
