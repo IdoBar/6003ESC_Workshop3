@@ -215,7 +215,7 @@ To be able to compare the disease progress between countries, we could "normalis
 
 ```{r baseline_comparison}
 baselined_data <- most_affected_data %>% filter(Confirmed>=100000) %>% group_by(Country_Region) %>% 
-  mutate(Days_since_100k=difftime(Date,first(Date), units = "days")) %>% ungroup()
+  mutate(Days_since_100k=difftime(Date,dplyr::first(Date), units = "days")) %>% ungroup()
 # create the plot
 plot <- ggplot(baselined_data, aes(x=Days_since_100k, y=Confirmed, colour=Country)) +
   geom_line(size=0.6) + scale_y_log10(labels=comma) +
@@ -242,17 +242,10 @@ covid_weekly_data <- eu_data %>%
   pivot_wider(names_from = "indicator", values_from = "cumulative_count") %>% 
   filter(!grepl("(Total)", Country, fixed = TRUE)) %>% 
   group_by(Country) %>% arrange(Country, Date) %>% # slice(1) %>% 
-  mutate(Total_cases=cases, Total_Deaths=deaths, Cases_per_mill=Total_cases*1e6/population,
-         geoId=countrycode(country_code, origin = 'iso3c', destination = 'iso2c', warn = FALSE), 
-         geoId = case_when(country_code=="XKX"~"KV",
-                           geoId=="UK"~"GB",
-                           geoId=="EL"~"GR",
-                           geoId=="PS"~"WE",
-                           geoId=="JPG11668"~"UM",
-                           TRUE~geoId)) %>% 
+  mutate(Total_cases=cases, Total_Deaths=deaths,
+         Cases_per_mill=Total_cases*1e6/population) %>% 
   ungroup()
-                                
-          
+
 # use the line below if using the Excel file downloaded from the web page  
 # read_excel("data/COVID-19-geographic-disbtribution-worldwide-2020-03-22.xlsx") 
   
@@ -264,8 +257,10 @@ Similar to what we did earlier, we'll group the data by Country and sort it by D
 
 ```{r per_mill_plot}
 # find the 10 most affected countries and order them from the most affected to the least one
-worst_by_pop_data <- covid_weekly_data %>% group_by(Country) %>% arrange(desc(Date)) %>% slice(1) %>% 
-  ungroup() %>% filter(population>100000) %>% arrange(desc(Cases_per_mill)) %>% slice(1:11) 
+worst_by_pop_data <- covid_weekly_data %>% group_by(Country) %>% 
+  arrange(desc(Date)) %>% slice(1) %>% 
+  ungroup() %>% filter(population>100000) %>% arrange(desc(Cases_per_mill)) %>%
+  slice(1:10) 
 
 # subset the weekly data 
 plot_data <- covid_weekly_data %>% filter(Country %in% worst_by_pop_data$Country) %>% 
@@ -330,12 +325,21 @@ mapdata <- get_data_from_map(world_map)
 
 # select only most current data
 choroplet_data <- covid_weekly_data %>%  group_by(Country) %>% arrange(desc(Date)) %>% 
-  slice(1) %>% filter(Total_cases>0) %>% mutate(log_cases=log(Total_cases), 
-                                            CFR=scales::percent(Total_Deaths/Total_cases, accuracy=.01),
-                                            Total_cases=scales::comma(Total_cases, accuracy=1), 
-                                            Total_Deaths = scales::comma(Total_Deaths, accuracy=1), 
-                            Cases_per_mill=scales::number(Cases_per_mill, accuracy = .01,big.mark = ","), 
-                                                pop=scales::comma(population, accuracy=1))
+  slice(1) %>% filter(Total_cases>0) %>% 
+  mutate(log_cases=log(Total_cases),
+         CFR=scales::percent(Total_Deaths/Total_cases, accuracy=.01),
+         Total_cases=scales::comma(Total_cases, accuracy=1), 
+         Total_Deaths = scales::comma(Total_Deaths, accuracy=1), 
+         Cases_per_mill=scales::number(Cases_per_mill, accuracy = .01,big.mark = ","), 
+         pop=scales::comma(population, accuracy=1),
+         geoID=countrycode(country_code, origin = 'iso3c', destination = 'iso2c', 
+                           warn = FALSE),
+         geoID=case_when(country_code=="XKX"~"KV",
+                         geoID=="UK"~"GB",
+                         geoID=="EL"~"GR",
+                         geoID=="PS"~"WE",
+                         geoID=="JPG11668"~"UM",
+                         TRUE~geoID))
 
 
 # # define colors
@@ -348,7 +352,7 @@ stops <- data.frame(q=1:length(bins)/length(bins), c=cols) %>% list_parse2(.)
 # plot map
   highchart(type = "map", hc_opts = list(caption=glue("<b>Number of confirmed COVID-19 cases by Country</b><br/>An up-to-date summary of daily data obtained from the European Centre for Disease Prevention and Control<br/>Data was last updated on {format(max(choroplet_data$Date), '%d/%m/%Y')}."))) %>%
     hc_add_series_map(map = world_map, df = choroplet_data,
-                      value = "log_cases", joinBy = c("iso-a2", "geoId")) %>%
+                      value = "log_cases", joinBy = c("iso-a2", "geoID")) %>%
     hc_colorAxis(stops  = color_stops(length(bins), cols), tickPositions=log(bins), showLastLabel=FALSE, labels=list(formatter=JS("function(){ 
     var n=Math.exp(this.value);
     if (n < 1e3) return n.toFixed(0);
