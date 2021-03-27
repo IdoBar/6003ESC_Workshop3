@@ -216,8 +216,11 @@ To be able to compare the disease progress between countries, we could "normalis
 ```{r baseline_comparison}
 baselined_data <- most_affected_data %>% filter(Confirmed>=100000) %>% group_by(Country_Region) %>% 
   mutate(Days_since_100k=difftime(Date,dplyr::first(Date), units = "days")) %>% ungroup()
+
+country_order <- baselined_data  %>% filter(Days_since_100k==300) %>% arrange(desc(Confirmed)) %>% 
+  select(Country_Region)
 # create the plot
-plot <- ggplot(baselined_data, aes(x=Days_since_100k, y=Confirmed, colour=Country)) +
+plot <- ggplot(baselined_data, aes(x=Days_since_100k, y=Confirmed, colour=factor(Country, levels=country_order$Country_Region))) +
   geom_line(size=0.6) + scale_y_log10(labels=comma) +
     scale_color_paletteer_d("ggsci::springfield_simpsons") +
   labs(color="Country", x="Days since the 100,000th patient") +
@@ -264,10 +267,10 @@ worst_by_pop_data <- covid_weekly_data %>% group_by(Country) %>%
 
 # subset the weekly data 
 plot_data <- covid_weekly_data %>% filter(Country %in% worst_by_pop_data$Country) %>% 
-  mutate(Country=fct_reorder(factor(Country), Cases_per_mill, .desc = TRUE)) %>% 
+  mutate(Country=factor(Country, levels = worst_by_pop_data$Country)) %>% 
   filter(Date>as.Date("2020-04-01"))
 # create the plot
-plot <- ggplot(plot_data, aes(x=Date, y=Cases_per_mill, colour=Country)) +
+ggplot(plot_data, aes(x=Date, y=Cases_per_mill, colour=Country)) +
   geom_line(size=0.6) + scale_y_continuous(labels=comma) +
   scale_x_date(NULL,
     breaks = breaks_width("2 months"), 
@@ -275,8 +278,8 @@ plot <- ggplot(plot_data, aes(x=Date, y=Cases_per_mill, colour=Country)) +
     scale_color_paletteer_d("rcartocolor::Bold") + # ggsci::springfield_simpsons
   labs(x="Date", y="Cases per million people") +
   theme_bw(16)
-# show an interactive plot
-ggplotly(plot)
+# save the plot to pdf file
+ggsave("output/cases_per_million_worst_countries.pdf", width=8, height = 6)
 ```
 
 #### Questions
@@ -383,6 +386,7 @@ What else can we plot or investigate?
 
 * Johns Hopkins University Center for Systems Science and Engineering (JHU CSSE) [data repository](https://github.com/CSSEGISandData/COVID-19){target="_blank"} and [website](https://systems.jhu.edu/research/public-health/ncov/){target="_blank"}
 * EU 14-days COVID-19 data for download in CSV/Excel format [link](https://www.ecdc.europa.eu/en/publications-data/data-national-14-day-notification-rate-covid-19){target="_blank"} 
+* Be awesome in ggplot2: A Practical Guide to be Highly Effective - R software and data visualization ([link](http://www.sthda.com/english/wiki/be-awesome-in-ggplot2-a-practical-guide-to-be-highly-effective-r-software-and-data-visualization){target="_blank"})  
 * COVID-19 vaccination data in [Our World in Data site](https://ourworldindata.org/covid-vaccinations){target="_blank"}
 * My very own [COVID-19 dashboard](https://idobar.github.io/covid19-dash/){target="_blank"} (created in R)
 
